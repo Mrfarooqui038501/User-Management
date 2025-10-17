@@ -1,6 +1,20 @@
 import { User } from "../models/User.js";
 import { Follower } from "../models/Follower.js";
 
+// Helper: create dummy users
+export const createDummyUsers = async () => {
+  const count = await User.count();
+  if (count === 0) {
+    console.log("📌 Creating dummy users...");
+    await User.bulkCreate([
+      { name: "Alice", email: "alice@example.com", phone: "1111111111", dob: "1995-05-20", image_url: null },
+      { name: "Bob", email: "bob@example.com", phone: "2222222222", dob: "1992-08-15", image_url: null },
+      { name: "Charlie", email: "charlie@example.com", phone: "3333333333", dob: "1990-12-10", image_url: null },
+    ]);
+    console.log("✅ Dummy users created!");
+  }
+};
+
 // Get all users
 export const getAllUsers = async (req, res) => {
   try {
@@ -37,75 +51,20 @@ export const getUserById = async (req, res) => {
 // Create user
 export const createUser = async (req, res) => {
   try {
-    console.log("📥 Received user data:", req.body);
-
     const { name, email, phone, dob, image_url } = req.body;
 
-    // Validation
     if (!name || !email || !phone || !dob) {
-      return res.status(400).json({ 
-        message: "All fields are required",
-        missing: {
-          name: !name,
-          email: !email,
-          phone: !phone,
-          dob: !dob
-        }
-      });
+      return res.status(400).json({ message: "All fields are required" });
     }
 
-    
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({ message: "Invalid email format" });
-    }
-
-    
     const existingUser = await User.findOne({ where: { email } });
-    if (existingUser) {
-      return res.status(400).json({ message: "Email already exists" });
-    }
+    if (existingUser) return res.status(400).json({ message: "Email already exists" });
 
-    
-    const userData = {
-      name: name.trim(),
-      email: email.toLowerCase().trim(),
-      phone: phone.trim(),
-      dob,
-      image_url: image_url || null
-    };
-
-    const user = await User.create(userData);
-    console.log("✅ User created successfully:", user.id);
-    
-    res.status(201).json({
-      message: "User created successfully",
-      user
-    });
+    const user = await User.create({ name, email, phone, dob, image_url });
+    res.status(201).json({ message: "User created", user });
   } catch (err) {
-    console.error("❌ Create user error:", err);
-    
-    
-    if (err.name === 'SequelizeValidationError') {
-      return res.status(400).json({ 
-        message: "Validation error",
-        errors: err.errors.map(e => ({
-          field: e.path,
-          message: e.message
-        }))
-      });
-    }
-
-    if (err.name === 'SequelizeUniqueConstraintError') {
-      return res.status(400).json({ 
-        message: "Email or phone already exists"
-      });
-    }
-
-    res.status(500).json({ 
-      message: "Failed to create user",
-      error: err.message 
-    });
+    console.error(err);
+    res.status(500).json({ message: "Failed to create user", error: err.message });
   }
 };
 
@@ -114,17 +73,11 @@ export const updateUser = async (req, res) => {
   try {
     const user = await User.findByPk(req.params.id);
     if (!user) return res.status(404).json({ message: "User not found" });
-    
     await user.update(req.body);
-    console.log("✅ User updated:", user.id);
-    
-    res.json({
-      message: "User updated successfully",
-      user
-    });
+    res.json({ message: "User updated", user });
   } catch (err) {
-    console.error("Update user error:", err);
-    res.status(400).json({ message: err.message });
+    console.error(err);
+    res.status(500).json({ message: err.message });
   }
 };
 
@@ -133,13 +86,10 @@ export const deleteUser = async (req, res) => {
   try {
     const user = await User.findByPk(req.params.id);
     if (!user) return res.status(404).json({ message: "User not found" });
-    
     await user.destroy();
-    console.log("✅ User deleted:", req.params.id);
-    
-    res.json({ message: "User deleted successfully" });
+    res.json({ message: "User deleted" });
   } catch (err) {
-    console.error("Delete user error:", err);
+    console.error(err);
     res.status(500).json({ message: err.message });
   }
 };
@@ -147,30 +97,23 @@ export const deleteUser = async (req, res) => {
 // Follow a user
 export const followUser = async (req, res) => {
   try {
-    const { followerId, followingId } = req.body;
-    
-    if (followerId === followingId) {
-      return res.status(400).json({ message: "Cannot follow yourself" });
-    }
-    
+    const followerId = req.body.followerId || req.body.follower_id;
+    const followingId = req.body.followingId || req.body.following_id;
+
+    if (!followerId || !followingId) return res.status(400).json({ message: "followerId and followingId required" });
+    if (parseInt(followerId) === parseInt(followingId)) return res.status(400).json({ message: "Cannot follow yourself" });
+
     const follower = await User.findByPk(followerId);
     const following = await User.findByPk(followingId);
-    
-    if (!follower || !following) {
-      return res.status(404).json({ message: "User not found" });
-    }
+    if (!follower || !following) return res.status(404).json({ message: "User not found" });
 
-    const [record, created] = await Follower.findOrCreate({ 
-      where: { follower_id: followerId, following_id: followingId } 
-    });
+    const exists = await Follower.findOne({ where: { follower_id: followerId, following_id: followingId } });
+    if (exists) return res.status(400).json({ message: "Already following" });
 
-    if (!created) {
-      return res.status(400).json({ message: "Already following this user" });
-    }
-
-    res.json({ message: `${follower.name} is now following ${following.name}` });
+    await Follower.create({ follower_id: followerId, following_id: followingId });
+    res.status(200).json({ message: `${follower.name} is now following ${following.name}` });
   } catch (err) {
-    console.error("Follow user error:", err);
+    console.error(err);
     res.status(500).json({ message: err.message });
   }
 };
@@ -178,20 +121,18 @@ export const followUser = async (req, res) => {
 // Unfollow a user
 export const unfollowUser = async (req, res) => {
   try {
-    const { followerId, followingId } = req.body;
+    const followerId = req.body.followerId || req.body.follower_id;
+    const followingId = req.body.followingId || req.body.following_id;
 
-    const record = await Follower.findOne({ 
-      where: { follower_id: followerId, following_id: followingId } 
-    });
-    
-    if (!record) {
-      return res.status(404).json({ message: "Follow relationship not found" });
-    }
+    if (!followerId || !followingId) return res.status(400).json({ message: "followerId and followingId required" });
+
+    const record = await Follower.findOne({ where: { follower_id: followerId, following_id: followingId } });
+    if (!record) return res.status(404).json({ message: "Follow relationship not found" });
 
     await record.destroy();
-    res.json({ message: "Unfollowed successfully" });
+    res.status(200).json({ message: "Unfollowed successfully" });
   } catch (err) {
-    console.error("Unfollow user error:", err);
+    console.error(err);
     res.status(500).json({ message: err.message });
   }
 };

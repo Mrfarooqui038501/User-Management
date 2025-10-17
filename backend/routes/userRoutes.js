@@ -11,12 +11,15 @@ import {
 
 const router = express.Router();
 
+// Follow / Unfollow routes first
+router.post("/follow", followUser);
+router.post("/unfollow", unfollowUser);
+
+// CRUD routes
 router.get("/", getAllUsers);
 router.get("/:id", getUserById);
 router.post("/", createUser);
 router.put("/:id", updateUser);
 router.delete("/:id", deleteUser);
-router.post("/follow", followUser);
-router.post("/unfollow", unfollowUser);
 
 export default router;
