@@ -81,15 +81,15 @@ const Dashboard = () => {
     );
   }
 
-  const currentUser = users.find(u => u.id === currentUserId);
+  const currentUser = users.find((u) => u.id === currentUserId);
 
   return (
     <div className="p-6 bg-gray-100 min-h-screen">
       {/* Header */}
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-4xl font-bold text-gray-800">User Dashboard</h1>
-          <p className="text-gray-600 mt-2">Manage and view all users</p>
+          <p className="text-gray-600 mt-1">Manage and view all users</p>
         </div>
         <button
           onClick={() => navigate("/create")}
@@ -99,11 +99,31 @@ const Dashboard = () => {
         </button>
       </div>
 
+      {/* Stats Panel */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="bg-white p-6 rounded-lg shadow-md text-center">
+          <h3 className="text-gray-600 text-sm font-medium">Total Users</h3>
+          <p className="text-3xl font-bold text-blue-600 mt-2">{users.length}</p>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow-md text-center">
+          <h3 className="text-gray-600 text-sm font-medium">Following</h3>
+          <p className="text-3xl font-bold text-purple-600 mt-2">
+            {currentUser?.Following?.length || 0}
+          </p>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow-md text-center">
+          <h3 className="text-gray-600 text-sm font-medium">Followers</h3>
+          <p className="text-3xl font-bold text-green-600 mt-2">
+            {currentUser?.Followers?.length || 0}
+          </p>
+        </div>
+      </div>
+
       {/* Users Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {users.map((user) => {
           const isCurrentUser = user.id === currentUserId;
-          const isFollowing = currentUser?.Following?.some(f => f.id === user.id);
+          const isFollowing = currentUser?.Following?.some((f) => f.id === user.id);
 
           return (
             <div
@@ -140,21 +160,21 @@ const Dashboard = () => {
 
                 {/* Action Buttons */}
                 <div className="space-y-2">
-                  {/* Follow/Unfollow Button */}
                   {!isCurrentUser && (
                     <button
                       onClick={() =>
                         isFollowing ? handleUnfollow(user.id) : handleFollow(user.id)
                       }
                       className={`w-full py-2 px-4 rounded-lg font-semibold transition-colors ${
-                        isFollowing ? "bg-red-500 hover:bg-red-600 text-white" : "bg-blue-500 hover:bg-blue-600 text-white"
+                        isFollowing
+                          ? "bg-red-500 hover:bg-red-600 text-white"
+                          : "bg-blue-500 hover:bg-blue-600 text-white"
                       }`}
                     >
                       {isFollowing ? "Unfollow" : "Follow"}
                     </button>
                   )}
 
-                  {/* Edit and Delete Buttons */}
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleEdit(user.id)}
@@ -187,7 +207,10 @@ const Dashboard = () => {
             </p>
             <div className="flex gap-4">
               <button
-                onClick={() => { setShowDeleteModal(false); setUserToDelete(null); }}
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setUserToDelete(null);
+                }}
                 className="flex-1 bg-gray-300 py-3 rounded-lg font-semibold hover:bg-gray-400 transition"
               >
                 Cancel
