@@ -1,19 +1,8 @@
 import { User } from "../models/User.js";
 import { Follower } from "../models/Follower.js";
 
-// Helper: create dummy users
-export const createDummyUsers = async () => {
-  const count = await User.count();
-  if (count === 0) {
-    console.log("📌 Creating dummy users...");
-    await User.bulkCreate([
-      { name: "Alice", email: "alice@example.com", phone: "1111111111", dob: "1995-05-20", image_url: null },
-      { name: "Bob", email: "bob@example.com", phone: "2222222222", dob: "1992-08-15", image_url: null },
-      { name: "Charlie", email: "charlie@example.com", phone: "3333333333", dob: "1990-12-10", image_url: null },
-    ]);
-    console.log("✅ Dummy users created!");
-  }
-};
+
+
 
 // Get all users
 export const getAllUsers = async (req, res) => {
