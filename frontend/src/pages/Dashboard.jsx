@@ -1,18 +1,25 @@
 import React, { useEffect, useState } from "react";
 import { API } from "../utils/api";
-import { useNavigate } from "react-router-dom"; // <-- for navigation
+import { useNavigate } from "react-router-dom";
 
 const Dashboard = () => {
   const [users, setUsers] = useState([]);
-  const [currentUserId, setCurrentUserId] = useState(1); // replace with logged-in user ID
+  const [loading, setLoading] = useState(true);
+  const [currentUserId, setCurrentUserId] = useState(1); // Replace with actual logged-in user
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
   const navigate = useNavigate();
 
   const fetchUsers = async () => {
     try {
+      setLoading(true);
       const res = await API.get("/users");
       setUsers(res.data);
     } catch (err) {
-      console.error(err);
+      console.error("Error fetching users:", err);
+      alert("Failed to load users");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -29,64 +36,243 @@ const Dashboard = () => {
 
   const handleFollow = async (targetId) => {
     try {
-      await API.post("/users/follow", { followerId: currentUserId, followingId: targetId });
+      await API.post("/users/follow", {
+        followerId: currentUserId,
+        followingId: targetId,
+      });
+      alert("User followed successfully!");
       fetchUsers();
     } catch (err) {
-      console.error(err);
+      console.error("Error following user:", err);
+      alert(err.response?.data?.message || "Failed to follow user");
     }
   };
 
   const handleUnfollow = async (targetId) => {
     try {
-      await API.post("/users/unfollow", { followerId: currentUserId, followingId: targetId });
+      await API.post("/users/unfollow", {
+        followerId: currentUserId,
+        followingId: targetId,
+      });
+      alert("User unfollowed successfully!");
       fetchUsers();
     } catch (err) {
-      console.error(err);
+      console.error("Error unfollowing user:", err);
+      alert(err.response?.data?.message || "Failed to unfollow user");
     }
   };
 
+  const handleEdit = (userId) => {
+    navigate(`/edit/${userId}`);
+  };
+
+  const confirmDelete = (user) => {
+    setUserToDelete(user);
+    setShowDeleteModal(true);
+  };
+
+  const handleDelete = async () => {
+    if (!userToDelete) return;
+
+    try {
+      await API.delete(`/users/${userToDelete.id}`);
+      alert("User deleted successfully!");
+      setShowDeleteModal(false);
+      setUserToDelete(null);
+      fetchUsers();
+    } catch (err) {
+      console.error("Error deleting user:", err);
+      alert(err.response?.data?.message || "Failed to delete user");
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-gray-100">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-500"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 bg-gray-100 min-h-screen">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">User Dashboard</h1>
+      {/* Header */}
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h1 className="text-4xl font-bold text-gray-800">User Dashboard</h1>
+          <p className="text-gray-600 mt-2">Manage and view all users</p>
+        </div>
         <button
           onClick={() => navigate("/create")}
-          className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+          className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition shadow-lg font-semibold"
         >
           + Create User
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* User Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <h3 className="text-gray-600 text-sm font-medium">Total Users</h3>
+          <p className="text-3xl font-bold text-blue-600 mt-2">{users.length}</p>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <h3 className="text-gray-600 text-sm font-medium">Active Users</h3>
+          <p className="text-3xl font-bold text-green-600 mt-2">{users.length}</p>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <h3 className="text-gray-600 text-sm font-medium">Following</h3>
+          <p className="text-3xl font-bold text-purple-600 mt-2">
+            {users.find(u => u.id === currentUserId)?.Following?.length || 0}
+          </p>
+        </div>
+      </div>
+
+      {/* Users Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {users.map((user) => {
-          const isFollowing = user.Followers.some(f => f.id === currentUserId);
+          const isFollowing = user.Followers?.some((f) => f.id === currentUserId);
+          const isCurrentUser = user.id === currentUserId;
+
           return (
-            <div key={user.id} className="bg-white p-4 rounded-lg shadow-md flex flex-col items-center">
-              <img
-                src={user.image_url || "https://via.placeholder.com/100"}
-                alt={user.name}
-                className="w-24 h-24 rounded-full object-cover mb-4"
-              />
-              <h2 className="text-xl font-semibold">{user.name}</h2>
-              <p>Email: {user.email}</p>
-              <p>Phone: {user.phone}</p>
-              <p>Age: {calculateAge(user.dob)}</p>
-              <p>Followers: {user.Followers.length}</p>
-              <p>Following: {user.Following.length}</p>
-              {user.id !== currentUserId && (
-                <button
-                  onClick={() => (isFollowing ? handleUnfollow(user.id) : handleFollow(user.id))}
-                  className={`mt-3 px-4 py-2 rounded ${
-                    isFollowing ? "bg-red-500 text-white" : "bg-blue-500 text-white"
-                  }`}
-                >
-                  {isFollowing ? "Unfollow" : "Follow"}
-                </button>
-              )}
+            <div
+              key={user.id}
+              className="bg-white rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden"
+            >
+              {/* User Image Header */}
+              <div className="relative h-48 bg-gradient-to-br from-blue-400 to-purple-500">
+                <img
+                  src={user.image_url || "https://via.placeholder.com/150"}
+                  alt={user.name}
+                  className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1/2 w-32 h-32 rounded-full object-cover border-4 border-white shadow-lg"
+                  onError={(e) => {
+                    e.target.src = "https://via.placeholder.com/150";
+                  }}
+                />
+              </div>
+
+              {/* User Info */}
+              <div className="pt-20 pb-6 px-6 text-center">
+                <h2 className="text-xl font-bold text-gray-800 mb-1 truncate">
+                  {user.name}
+                </h2>
+                <p className="text-sm text-gray-500 mb-1 truncate">{user.email}</p>
+                <p className="text-sm text-gray-500 mb-1">{user.phone}</p>
+                <p className="text-xs text-gray-400 mb-4">
+                  Age: {calculateAge(user.dob)} years
+                </p>
+
+                {/* Stats */}
+                <div className="flex justify-center gap-6 mb-4 py-3 border-t border-b border-gray-200">
+                  <div>
+                    <p className="text-2xl font-bold text-blue-600">
+                      {user.Followers?.length || 0}
+                    </p>
+                    <p className="text-xs text-gray-500">Followers</p>
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-purple-600">
+                      {user.Following?.length || 0}
+                    </p>
+                    <p className="text-xs text-gray-500">Following</p>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="space-y-2">
+                  {/* Follow/Unfollow Button */}
+                  {!isCurrentUser && (
+                    <button
+                      onClick={() =>
+                        isFollowing ? handleUnfollow(user.id) : handleFollow(user.id)
+                      }
+                      className={`w-full py-2 px-4 rounded-lg font-semibold transition-colors ${
+                        isFollowing
+                          ? "bg-red-500 hover:bg-red-600 text-white"
+                          : "bg-blue-500 hover:bg-blue-600 text-white"
+                      }`}
+                    >
+                      {isFollowing ? "Unfollow" : "Follow"}
+                    </button>
+                  )}
+
+                  {/* Edit and Delete Buttons */}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleEdit(user.id)}
+                      className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg font-semibold transition-colors"
+                    >
+                      ✏️ Edit
+                    </button>
+                    <button
+                      onClick={() => confirmDelete(user)}
+                      className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-lg font-semibold transition-colors"
+                    >
+                      🗑️ Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           );
         })}
       </div>
+
+      {/* Empty State */}
+      {users.length === 0 && (
+        <div className="text-center py-20 bg-white rounded-lg shadow-md">
+          <p className="text-gray-500 text-xl mb-4">No users found</p>
+          <button
+            onClick={() => navigate("/create")}
+            className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 font-semibold"
+          >
+            Create First User
+          </button>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-8 max-w-md w-full shadow-2xl">
+            <div className="text-center mb-6">
+              <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-100 mb-4">
+                <span className="text-4xl">⚠️</span>
+              </div>
+              <h2 className="text-2xl font-bold text-gray-800 mb-2">
+                Confirm Delete
+              </h2>
+              <p className="text-gray-600">
+                Are you sure you want to delete{" "}
+                <span className="font-semibold text-gray-800">
+                  {userToDelete?.name}
+                </span>
+                ?
+              </p>
+              <p className="text-sm text-red-600 mt-2">
+                This action cannot be undone.
+              </p>
+            </div>
+            <div className="flex gap-4">
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setUserToDelete(null);
+                }}
+                className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 py-3 px-4 rounded-lg font-semibold transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                className="flex-1 bg-red-500 hover:bg-red-600 text-white py-3 px-4 rounded-lg font-semibold transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
